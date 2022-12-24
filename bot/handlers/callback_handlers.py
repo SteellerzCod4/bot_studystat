@@ -18,8 +18,4 @@ async def handle_callbacks(callback: types.CallbackQuery):
 
     all_reactions = {states.ADD_SUBSUBJECT: add_subsubject_start}
 
-    await all_reactions[state](callback)
-    # await callback.message.answer("test")
-    await callback.answer("добавляем")
-    # await our_bot.edit_message_text(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
-    #                                 text="Предмет добавляется введите подраздел: ", reply_markup=None)
+
