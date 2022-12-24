@@ -63,6 +63,9 @@ class SubSubject(Base):
     def __repr__(self):
         return f"<SubSubject({self.id} {self.name})>"
 
+    def __str__(self):
+        return self.name
+
 
 class Records(Base):
     __tablename__ = "records"

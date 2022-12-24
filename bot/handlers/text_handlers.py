@@ -5,6 +5,7 @@ import database.operations as oper
 import bot.states as states
 import bot.keyboards as kb
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, timedelta
 
 
 # --------------------- Terminology -----------------------
@@ -28,16 +29,51 @@ async def add_subsubject_start(message, user_id):
     user = oper.get_user_by_id(user_id)
     subjects = user.subjects
     if not subjects:
-        await message.answer(mes.ADD_SUBSUBJECT_WARNING)
+        await message.answer(mes.ADD_SUBJECT_WARNING)
     else:
         keyboard_with_subjects = InlineKeyboardMarkup()
         for subject in subjects:
             keyboard_with_subjects.add(InlineKeyboardButton(text=str(subject),
                                                             callback_data=f"{states.ADD_SUBSUBJECT}_{str(subject)}"))
         keyboard_with_subjects.add(
-            InlineKeyboardButton(text=mes.CANCEL_SUBSUBJECT,
-                                 callback_data=f"{states.ADD_SUBSUBJECT}_{str(mes.CANCEL_SUBSUBJECT)}"))
+            InlineKeyboardButton(text=mes.CANCEL,
+                                 callback_data=f"{states.ADD_SUBSUBJECT}_{str(mes.CANCEL)}"))
         await message.answer(mes.SELECT_SUBSUBJECT, reply_markup=keyboard_with_subjects)
+
+
+async def add_stat_start(message, user_id):
+    user = oper.get_user_by_id(user_id)
+    subjects = user.subjects
+    if not subjects:
+        await message.answer(mes.ADD_SUBJECT_WARNING)
+        return
+    keyboard_with_subjects = InlineKeyboardMarkup()
+    has_subsubjects = False
+    for subject in subjects:
+        subsubjects = subject.subsubjects
+        for subsubject in subsubjects:
+            has_subsubjects = True
+            keyboard_with_subjects.add(
+                InlineKeyboardButton(text=f"{str(subject)}: {str(subsubject)}",
+                                     callback_data=f"{states.ADD_STAT}_{str(subject)}:{str(subsubject)}"))
+    keyboard_with_subjects.add(
+        InlineKeyboardButton(text=mes.CANCEL,
+                             callback_data=f"{states.ADD_STAT}_{str(mes.CANCEL)}"))
+    if not has_subsubjects:
+        await message.answer(mes.STAT_WARNING)
+    else:
+        await message.answer(mes.SELECT_SUBSUBJECT, reply_markup=keyboard_with_subjects)
+
+
+async def view_data_start(message, user_id):
+    keyboard_with_subjects = InlineKeyboardMarkup()
+    for period in ['день', 'неделя', 'месяц', 'год']:
+        keyboard_with_subjects.add(InlineKeyboardButton(text=period,
+                                                        callback_data=f"{states.VIEW_DATA}_{period}"))
+    keyboard_with_subjects.add(
+        InlineKeyboardButton(text=mes.CANCEL,
+                             callback_data=f"{states.VIEW_DATA}_{str(mes.CANCEL)}"))
+    await message.answer(mes.CHOOSE_PERIOD, reply_markup=keyboard_with_subjects)
 
 
 # --------------------- handle states ---------------------
@@ -46,8 +82,8 @@ async def handle_wait_for_action(message, user_id, text):
     actions = {mes.ADD_SUBJECT: add_subject_start,
                mes.GET_SUBJECTS: get_subjects,
                mes.ADD_SUBSUBJECT: add_subsubject_start,
-               # mes.ADD_STAT: add_stat,
-               # mes.VIEW_DATA: view_data,
+               mes.ADD_STAT: add_stat_start,
+               mes.VIEW_DATA: view_data_start,
                # mes.SET_TIMER: set_timer
                }
 
@@ -74,7 +110,45 @@ async def get_subjects(message, user_id):
     if not all_subjects:
         await message.answer(mes.HAVE_NOSUBJECTS)
     else:
-        await message.answer(mes.ALL_SUBJECTS + "\n".join(map(str, all_subjects)))
+        all_subjects_with_sub = []
+        for subject in all_subjects:
+            subsubjects = subject.subsubjects
+            for subsubject in subsubjects:
+                all_subjects_with_sub.append(f"{str(subject)}: {str(subsubject)}")
+            if not subsubjects:
+                all_subjects_with_sub.append(str(subject))
+        await message.answer(mes.ALL_SUBJECTS + "\n".join(all_subjects_with_sub))
+
+
+async def add_subsubject(message, user_id, text):
+    add_info = oper.get_add_info(user_id)
+    oper.add_subsubject(user_id, add_info.value, text)
+    await message.answer(mes.SUBSUBJECT_ADDED.format(text, add_info.value))
+    oper.delete_add_info(add_info)
+    oper.set_user_state(user_id, states.WAIT_FOR_ACTION)
+
+
+async def add_stat(message, user_id, text):
+    if text.lower() == 'нет':
+        oper.set_user_state(user_id, states.WAIT_FOR_ACTION)
+        await message.answer(mes.CANCEL_CONFIRMED)
+        return
+    try:
+        add_info = oper.get_add_info(user_id)
+        hours, date, description = text.split('\n')
+        time = datetime.strptime(hours, "%H:%M").time()
+        date = datetime.strptime(date, "%d/%m/%Y")
+        subject, subsubject = add_info.value.split(":")
+        oper.add_stat(user_id, subject, subsubject, time, date, description)
+        await message.answer(mes.STAT_ADDED)
+        oper.delete_add_info(add_info)
+        oper.set_user_state(user_id, states.WAIT_FOR_ACTION)
+    except Exception:
+        await message.answer(mes.PARSING_ERROR)
+
+
+
+
 
 
 # --------------------- handle message ---------------------
@@ -85,7 +159,9 @@ async def handle_message(message: types.message):
     state = oper.get_user_state(user_id)
 
     handle_functions = {states.WAIT_FOR_ACTION: handle_wait_for_action,
-                        states.ADD_SUBJECT: add_subject}
+                        states.ADD_SUBJECT: add_subject,
+                        states.ADD_SUBSUBJECT: add_subsubject,
+                        states.ADD_STAT: add_stat}
 
     function = handle_functions.get(state)
     if function:
