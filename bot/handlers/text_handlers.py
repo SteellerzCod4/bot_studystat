@@ -76,6 +76,21 @@ async def view_data_start(message, user_id):
     await message.answer(mes.CHOOSE_PERIOD, reply_markup=keyboard_with_subjects)
 
 
+async def delete_subject_start(message, user_id):
+    user = oper.get_user_by_id(user_id)
+    subjects = user.subjects
+    if not subjects:
+        await message.answer(mes.ADD_SUBJECT_WARNING)
+    else:
+        keyboard_with_subjects = InlineKeyboardMarkup()
+        for subject in subjects:
+            keyboard_with_subjects.add(InlineKeyboardButton(text=str(subject),
+                                                            callback_data=f"{states.DELETE_SUBJECT}_{str(subject)}"))
+        keyboard_with_subjects.add(
+            InlineKeyboardButton(text=mes.CANCEL,
+                                 callback_data=f"{states.DELETE_SUBJECT}_{str(mes.CANCEL)}"))
+        await message.answer(mes.CHOSE_TO_DELETE, reply_markup=keyboard_with_subjects)
+
 # --------------------- handle states ---------------------
 # state: WAIT_FOR_ACTION
 async def handle_wait_for_action(message, user_id, text):
@@ -84,7 +99,7 @@ async def handle_wait_for_action(message, user_id, text):
                mes.ADD_SUBSUBJECT: add_subsubject_start,
                mes.ADD_STAT: add_stat_start,
                mes.VIEW_DATA: view_data_start,
-               # mes.SET_TIMER: set_timer
+               mes.DELETE_SUBJECT: delete_subject_start
                }
 
     process_action = actions.get(text)

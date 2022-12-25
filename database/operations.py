@@ -1,6 +1,7 @@
 from database import get_db
 from database.models import User, AdditionalInfo, SubSubject, Records
 from database.models import Subject
+import pandas as pd
 
 db = get_db()
 
@@ -73,5 +74,16 @@ def add_stat(user_id, subject, subsubject, hours, date, description=None):
 
 
 def get_records(user_id, start_date, end_date):
-    return db.query(Records).filter((Records.user_id == user_id)
-                                    & (Records.date >= start_date) & (Records.date <= end_date)).all()
+    df = pd.read_sql(db.query(Records, Subject).filter((Records.user_id == user_id) & (Records.subject_id == Subject.id)
+                                                       & (Records.date >= start_date) & (
+                                                               Records.date <= end_date)).statement, db.bind)
+
+    df = df.drop_duplicates().reset_index()
+    df["hours"] = pd.to_timedelta(df["timedelta"].astype(str)).dt.total_seconds() / 3600
+    return df
+
+
+def delete_subject(user_id, subject_name):
+    subject = db.query(Subject).filter((Subject.name == subject_name) & (Subject.user_id == user_id)).first()
+    db.delete(subject)
+    db.commit()
