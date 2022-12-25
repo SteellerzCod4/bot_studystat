@@ -6,8 +6,11 @@ Main opportunities:
 - Add daily data
 - Get stats for different time periods
 - Get data for different time periods
-- Start studying session(with phases or sec-timer)
-- Editing data
-- Export statistics in csv
+- Delete subjects
+
+
+## Setup and Run
+1. To install requirements: `pip install -r /path/to/requirements.txt`
+2. Run main.py script: `python main.py`
 
 
